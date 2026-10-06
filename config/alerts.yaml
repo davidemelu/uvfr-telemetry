@@ -1,7 +1,11 @@
-# Alarm thresholds, evaluated by the pit receiver.
+# Alarm thresholds, evaluated by the pit receiver once per health interval.
 #
 # Thresholds live only in this file. The Grafana dashboard is generated from
-# it, so gauge colours and alarm states can never disagree with each other.
+# it (make dashboard), so gauge colours and alarm states can never disagree.
+#
+# These numbers are reasonable starting points for a generic 600 cc FSAE
+# engine, NOT values from the real UVFR car. Tune them with the team's
+# engine data before relying on them.
 
 # Telemetry link health (pit side, from arrival times and sequence numbers).
 link:
@@ -15,3 +19,115 @@ link:
 channel_staleness:
   missed_updates: 3         # STALE after this many of the channel's own update periods with no value
   min_stale_after_s: 0.5
+
+# Rule types: threshold, rate, stale, no_data, frozen, link.
+# Levels: above/below {warning, critical}. hysteresis: how far back past a
+# level the value must go before the alarm clears. hold_s: minimum time an
+# alarm stays raised. when: only judge the rule while another channel is in
+# a range (e.g. oil pressure only above 3000 rpm).
+rules:
+  - id: coolant_high
+    type: threshold
+    channel: coolant_temperature
+    above: {warning: 105, critical: 110}
+    hysteresis: 1.0
+    message: Coolant temperature high
+
+  - id: coolant_rising_fast
+    type: rate
+    channel: coolant_temperature
+    window_s: 15                              # long enough to average out load changes over a lap
+    above: {warning: 0.3, critical: 1.0}      # degC per second
+    when: {channel: coolant_temperature, above: 90}
+    hysteresis: 0.15
+    message: Coolant temperature rising rapidly
+
+  - id: engine_temperature_high
+    type: threshold
+    channel: engine_temperature
+    above: {warning: 135, critical: 150}
+    hysteresis: 5.0                           # head temperature swings with load every lap
+    hold_s: 10
+    message: Cylinder head temperature high
+
+  - id: oil_pressure_low
+    type: threshold
+    channel: oil_pressure
+    below: {warning: 150, critical: 100}
+    when: {channel: rpm, above: 3000}
+    hysteresis: 10
+    hold_s: 2
+    message: Oil pressure low
+
+  - id: oil_pressure_low_idle
+    type: threshold
+    channel: oil_pressure
+    below: {warning: 80, critical: 50}
+    when: {channel: rpm, above: 1000, below: 3000}
+    hysteresis: 5
+    message: Oil pressure low at idle
+
+  - id: battery_voltage_low
+    type: threshold
+    channel: battery_voltage
+    below: {warning: 12.0, critical: 11.5}
+    hysteresis: 0.1
+    message: Battery voltage low
+
+  - id: rpm_excessive
+    type: threshold
+    channel: rpm
+    above: {warning: 13500, critical: 14000}
+    hysteresis: 200
+    hold_s: 5                                 # over-revs are brief; keep them visible
+    message: Engine over-rev
+
+  - id: signal_stale
+    type: stale
+    channels: all                             # every vehicle channel
+    severity: warning
+    hold_s: 3                                 # intermittent CAN must not make this flap
+    message: Signal stale
+
+  - id: sensor_fault
+    type: no_data
+    channels: all
+    severity: warning
+    hold_s: 3
+    message: Sensor fault or no data
+
+  - id: can_data_delayed
+    type: can_age                             # oldest vehicle CAN message age reported by the car node
+    above: {warning: 250, critical: 1000}     # ms
+    message: CAN data delayed on the car
+
+  - id: frozen_sensor
+    type: frozen
+    channels: [coolant_temperature, engine_temperature, oil_pressure, battery_voltage]
+    window_s: 8
+    tolerance: 0.0
+    when: {channel: rpm, above: 2500}         # these always move while the engine runs
+    severity: warning
+    message: Sensor frozen
+
+  - id: telemetry_lost
+    type: link
+    condition: lost
+    message: Telemetry lost
+
+  - id: telemetry_stale
+    type: link
+    condition: stale
+    severity: warning
+    message: Telemetry stale
+
+  - id: packet_loss_high
+    type: link
+    condition: loss
+    message: Telemetry packet loss high
+
+  - id: channel_layout_mismatch
+    type: link
+    condition: config_mismatch
+    severity: warning
+    message: Car and pit channel layouts differ

@@ -81,7 +81,7 @@ def test_health_points(layout):
     snap, points = rx.health()
     assert snap.status is Status.NORMAL
     kinds = {p.measurement for p in points}
-    assert kinds == {"link", "channel_state", "sim"}
+    assert kinds == {"link", "channel_state", "sim", "pit"}
     states = [p for p in points if p.measurement == "channel_state"]
     assert len(states) == len(layout.channels)
     assert all(p.fields["status"] == "NORMAL" for p in states)
@@ -172,6 +172,35 @@ def test_a_failing_sink_does_not_stop_the_receiver(layout, capsys):
     assert "database down" in capsys.readouterr().err
 
 
+def test_alarms_flow_into_channel_state_and_alert_points(layout):
+    from pit_receiver.alerts import AlertEngine
+
+    alerts_cfg = load_yaml("config/alerts.yaml")
+    sink = MemorySink()
+    rx, clock = make_rx(layout, sinks=[sink])
+    rx.alerts = AlertEngine.from_config(alerts_cfg, layout)
+    codec = Codec(layout)
+    healthy = {"rpm": 9000.0, "oil_pressure": 420.0, "battery_voltage": 13.8, "coolant_temperature": 86.0,
+               "engine_temperature": 110.0}
+    for seq in range(60):
+        values = {layout.by_name(k).index: v for k, v in healthy.items()}
+        if seq >= 40:
+            values[layout.by_name("coolant_temperature").index] = 111.0
+        rx.on_datagram(codec.encode_telemetry(5, seq, seq * 100, values))
+        clock.t += 0.1
+        if seq % 10 == 9:
+            rx.health()
+    states = {p.tags["channel"]: p.fields["status"] for p in sink.by_measurement("channel_state")[-len(layout.channels):]}
+    assert states["coolant_temperature"] == "CRITICAL"
+    assert states["rpm"] == "NORMAL"
+    assert states["throttle_position"] == "NO DATA"  # never sent in this test
+    summary = sink.by_measurement("alerts_active")[-1].fields
+    assert summary["critical_count"] >= 1 and summary["vehicle_status"] == "CRITICAL"
+    assert "Coolant temperature high" in summary["summary"]
+    alert = next(p for p in sink.by_measurement("alert") if p.tags["rule"] == "coolant_high")
+    assert alert.fields["severity"] == "CRITICAL" and alert.tags["channel"] == "coolant_temperature"
+
+
 def test_scenario_labels():
     assert scenario_label(0) == "normal"
     assert scenario_label(1 | 64) == "overheating+intermittent_can"
@@ -195,7 +224,7 @@ def test_full_chain_over_impaired_radio(can_channel, tmp_path):
                           "--forward", f"127.0.0.1:{pit_port}", "--control-port", "0", "--seed", "4",
                           "--duration", "23", "--quiet"], cwd=REPO_ROOT),
         subprocess.Popen([py, "-m", "pit_receiver", "--listen", f"127.0.0.1:{pit_port}", "--jsonl", str(points),
-                          "--duration", "22", "--quiet"], cwd=REPO_ROOT),
+                          "--no-influx", "--duration", "22", "--quiet"], cwd=REPO_ROOT),
     ]
     time.sleep(0.5)
     procs.append(subprocess.Popen([py, "-m", "car_node", "--channel", can_channel, "--remote",

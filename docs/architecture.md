@@ -101,6 +101,31 @@ Transport ──▶ Codec.decode ──▶ LinkStats      sequence gaps, loss %,
 - **Sinks.** The receiver produces database-agnostic `Point`s. A failing sink
   (for example InfluxDB down) is logged and skipped; it never stops reception.
 
+### Alarms
+
+`pit_receiver/alerts.py` evaluates every rule in `config/alerts.yaml` once
+per health interval (1 s). No threshold appears anywhere else: the Grafana
+dashboard is generated from the same file.
+
+| Rule type | Example | Notes |
+|---|---|---|
+| threshold | coolant high, oil pressure low, battery low, RPM excessive | warning / critical levels, hysteresis, hold time, optional `when` gate on another channel; judged on the extreme value since the last evaluation so spikes are not missed |
+| rate | coolant rising rapidly | least-squares slope over a window |
+| stale / no_data | signal stale, sensor fault | only once a channel has been live, so "never received" is not an alarm |
+| frozen | sensor frozen | value identical for a window while the engine runs |
+| link | telemetry lost, telemetry stale, packet loss high, layout mismatch | from the link snapshot; loss is only judged once the window has enough packets |
+| can_age | CAN data delayed on the car | from the car node's STATUS packets |
+
+Design choices:
+
+- An alarm is **not cleared because its data went stale**. Losing data is not
+  evidence the problem went away; the channel shows STALE and the alarm stays.
+- A channel's displayed status combines liveness and alarms: STALE and NO DATA
+  win, a frozen sensor shows STALE, otherwise the worst active alarm.
+- Every change is written as an `alert` point (shown in the alarm history and
+  as dashboard annotations) and printed by the receiver as RAISED, ESCALATED,
+  DOWNGRADED or CLEARED.
+
 ### Status vocabulary
 
 The pit uses five statuses everywhere (link, channels, alarms):
@@ -120,7 +145,10 @@ The pit uses five statuses everywhere (link, channels, alarms):
 | `vehicle` | per telemetry packet (10/s) | `car` | one field per live channel (`rpm`, `coolant_temperature`, ...) |
 | `car_status` | 1/s | `car` | CAN frames/s, counter gaps, decode errors, CPU %, per-message CAN ages, layout match |
 | `link` | 1/s | `car` | status, reason, packets received/expected/missing, loss % (total and recent), packet and byte rate, last-packet age, uptime, availability, rejected by reason, excess delay |
-| `channel_state` | 1/s per channel | `car`, `channel` | status, status code, age, last value |
+| `channel_state` | 1/s per channel | `car`, `channel` | status (liveness plus alarms), status code, age, last value |
+| `alerts_active` | 1/s | `car` | vehicle status, warning and critical counts, summary text |
+| `alert` | on every change | `car`, `rule`, `channel` | severity, previous severity, message, value |
+| `pit` | 1/s | `car` | receiver uptime, InfluxDB writer health (written, buffered, dropped, errors) |
 | `sim` | 1/s (lab only) | `car` | active fault scenario |
 
 ## Configuration
@@ -168,4 +196,4 @@ package.
 | Radio too slow | queue growth at the radio | rising loss, stale channels |
 | Car node restart | new session id | sessions count, sequence tracking resets |
 | Car and pit configs differ | layout hash in STATUS | link WARNING, config mismatch |
-| InfluxDB down | sink error | logged; reception continues |
+| InfluxDB down | InfluxDB writer | points buffered (bounded, about 2 h) and written on recovery; reception continues |

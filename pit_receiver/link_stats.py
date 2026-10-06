@@ -114,6 +114,7 @@ class LinkSnapshot:
     packets_missing: int
     loss_pct: float
     loss_pct_window: float
+    loss_window_ready: bool  # enough packets seen for the recent loss to mean something
     duplicates: int
     out_of_order: int
     rejected: dict[str, int]
@@ -219,7 +220,9 @@ class LinkStats:
         seconds = int(uptime) + 1 if self.session_start is not None else 0
         availability = 100.0 * min(1.0, self._seconds_total_with_data / seconds) if seconds else 0.0
         window_loss = self.seq.window_loss_pct(self.loss_window_packets)
-        status, reason = self._classify(age, window_loss)
+        # 1 lost out of the first 10 packets is "10%" but means nothing yet.
+        ready = self.seq.expected >= max(1, self.loss_window_packets // 2)
+        status, reason = self._classify(age, window_loss if ready else 0.0)
         return LinkSnapshot(
             status=status,
             reason=reason,
@@ -230,6 +233,7 @@ class LinkStats:
             packets_missing=self.seq.missing,
             loss_pct=self.seq.loss_pct,
             loss_pct_window=window_loss,
+            loss_window_ready=ready,
             duplicates=self.seq.duplicates,
             out_of_order=self.seq.out_of_order,
             rejected=dict(self.rejected),

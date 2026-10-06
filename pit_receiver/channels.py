@@ -48,6 +48,7 @@ class ChannelView:
     value: float | None  # current value, None when not live
     last_value: float | None  # last known value, even if stale
     age_s: float | None
+    reason: str = ""  # why it is not live, for alarm messages
 
 
 class ChannelTracker:
@@ -72,16 +73,18 @@ class ChannelTracker:
     def view(self, name: str, now: float) -> ChannelView:
         r = self.readings[name]
         if r.updated_at is None:
-            return ChannelView(name, Status.NO_DATA, None, None, None)
+            return ChannelView(name, Status.NO_DATA, None, None, None, "never received")
         age = max(0.0, now - r.updated_at)
-        if r.marker is Missing.NO_DATA:
-            status = Status.NO_DATA
-        elif r.marker is Missing.STALE or age > self.stale_after[name]:
-            status = Status.STALE
+        if age > self.stale_after[name]:
+            status, reason = Status.STALE, f"not received at the pit for {age:.1f} s"
+        elif r.marker is Missing.NO_DATA:
+            status, reason = Status.NO_DATA, "car reports sensor fault or no data"
+        elif r.marker is Missing.STALE:
+            status, reason = Status.STALE, "car reports CAN timeout"
         else:
-            status = Status.NORMAL
+            status, reason = Status.NORMAL, ""
         current = r.value if status is Status.NORMAL else None
-        return ChannelView(name, status, current, r.value, age)
+        return ChannelView(name, status, current, r.value, age, reason)
 
     def views(self, now: float) -> dict[str, ChannelView]:
         return {name: self.view(name, now) for name in self.readings}

@@ -72,6 +72,7 @@ cooling:
   oil_time_constant_s: 40.0
   intake_heat_soak_c: 15.0
   intake_time_constant_s: 15.0
+  boil_over_c: 130.0                   # pressurised coolant boils and vents above this
 
 oil:
   base_kpa: 60.0

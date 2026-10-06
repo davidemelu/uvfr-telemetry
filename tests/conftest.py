@@ -11,7 +11,8 @@ from common.config import load_yaml
 from common.dbc import load_dbc
 from simulator.simulation import Simulator
 
-CAN_CHANNEL = os.environ.get("UVFR_TEST_CAN_CHANNEL", "vcan0")
+# Tests get their own virtual bus so they can run while the demo uses vcan0.
+CAN_CHANNEL = os.environ.get("UVFR_TEST_CAN_CHANNEL", "vcan1")
 
 
 @pytest.fixture(scope="session")
@@ -51,5 +52,5 @@ def _vcan_available(channel: str) -> bool:
 @pytest.fixture(scope="session")
 def can_channel() -> str:
     if not _vcan_available(CAN_CHANNEL):
-        pytest.skip(f"{CAN_CHANNEL} not available (run scripts/setup-vcan.sh)")
+        pytest.skip(f"{CAN_CHANNEL} not available (run scripts/setup-vcan.sh {CAN_CHANNEL})")
     return CAN_CHANNEL

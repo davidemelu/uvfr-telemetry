@@ -70,6 +70,7 @@ pit_receiver:
   transport:
     type: udp
     listen: 127.0.0.1:47002    # Phase 0: from link_sim. Later: serial USB LoRa modem
+  dbc: dbc/simulated_uvfr.dbc  # optional; only used for channel units in alarm messages
   car_id: uvfr-sim
   health_interval_s: 1.0       # link health and channel state points
   rate_window_s: 5.0           # packet rate averaging window
@@ -78,3 +79,10 @@ pit_receiver:
   status_print_interval_s: 1.0
   outputs:
     jsonl: null                # e.g. logs/pit_points.jsonl to keep every point on disk
+    influxdb:
+      enabled: true
+      env_file: .env           # INFLUX_URL, INFLUX_ORG, INFLUX_BUCKET and the token come from here
+      token_variable: PIT_INFLUX_TOKEN   # write-only token created by make infra-up
+      batch_size: 1000
+      flush_interval_s: 0.5
+      max_buffer_points: 200000          # about 2 hours of telemetry if InfluxDB is down

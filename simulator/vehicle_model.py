@@ -116,6 +116,7 @@ class CoolingParams:
     oil_time_constant_s: float
     intake_heat_soak_c: float
     intake_time_constant_s: float
+    boil_over_c: float  # coolant cannot run away past this: it boils and vents
 
 
 @dataclass(frozen=True)
@@ -412,7 +413,7 @@ class VehicleModel:
         delta = self.coolant_c - amb
         q_out = ua * delta + c.block_loss_kw_per_k * delta
         capacity = c.thermal_capacity_kj_per_k * max(0.2, k.coolant_capacity_factor)
-        self.coolant_c += (q_gen - q_out) / capacity * dt
+        self.coolant_c = min(c.boil_over_c, self.coolant_c + (q_gen - q_out) / capacity * dt)
 
         self.head_c = _lag(
             self.head_c, self.coolant_c + c.head_offset_c + c.head_load_rise_c * load, c.head_time_constant_s, dt
