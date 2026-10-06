@@ -25,6 +25,9 @@ vcan: ## Create/verify the vcan0 virtual CAN interface (sudo)
 sim: venv ## Run the fake ECU in the foreground (SCENARIO=normal|overheating|...)
 	$(PY) -m simulator --scenario $(SCENARIO)
 
+car-node: venv ## Run the car telemetry node in the foreground
+	$(PY) -m car_node
+
 scenario: venv ## Switch the running fake ECU to SCENARIO
 	$(PY) -m simulator.ctl set $(SCENARIO)
 
@@ -40,4 +43,4 @@ test: venv ## Unit tests (no vcan, InfluxDB or Docker needed)
 test-vcan: venv ## Tests that need a vcan interface
 	$(PY) -m pytest -m "vcan and not integration"
 
-.PHONY: help venv vcan sim scenario candump candump-decoded test test-vcan
+.PHONY: help venv vcan sim car-node scenario candump candump-decoded test test-vcan

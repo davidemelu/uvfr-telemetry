@@ -1,0 +1,22 @@
+# Runtime wiring for the telemetry chain: what each process listens to and
+# where it sends. Channel selection lives in channels.yaml, alarm thresholds
+# in alerts.yaml, and the fake car in simulation.yaml.
+#
+# Phase 0 ports (all on the lab VM):
+#   car_node --udp 47001--> link_sim (simulated radio) --udp 47002--> pit_receiver
+
+car_node:
+  dbc: dbc/simulated_uvfr.dbc
+  can:
+    interface: socketcan
+    channel: vcan0              # can0 on the Raspberry Pi
+    require_listen_only: true   # refuse to start on a real CAN interface that is not listen-only
+  transport:
+    type: udp
+    remote: 127.0.0.1:47001     # Phase 0: the simulated radio (link_sim)
+    # Later, a USB LoRa modem:
+    # type: serial
+    # port: /dev/ttyUSB0
+    # baudrate: 57600
+  status_print_interval_s: 1.0
+  stats_file: run/car_node_stats.json
