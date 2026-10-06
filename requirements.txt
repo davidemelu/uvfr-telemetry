@@ -4,3 +4,4 @@
 python-can==4.6.1
 cantools==44.1.0
 PyYAML==6.0.3
+pyserial==3.5         # serial transport for USB radio modems
