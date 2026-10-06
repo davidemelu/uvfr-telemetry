@@ -1,0 +1,23 @@
+# Everything in this repository runs on Linux (telemetry VM today, Raspberry Pi
+# later). Keep LF line endings in the working tree on every platform so shell
+# scripts, YAML and Python never pick up CRLF from a Windows checkout.
+* text=auto eol=lf
+
+# Windows-only helpers (if any are ever added) keep CRLF.
+*.bat         text eol=crlf
+*.cmd         text eol=crlf
+*.ps1         text eol=crlf
+
+# Binary: never diff, never normalise.
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.pdf         binary
+*.zip         binary
+*.blf         binary
+*.mf4         binary
+
+# Better diffs.
+*.py          diff=python
+*.md          diff=markdown

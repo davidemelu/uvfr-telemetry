@@ -1,0 +1,43 @@
+# ---- Python ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# ---- Environment & secrets ----
+# Real credentials (InfluxDB token, Grafana admin password) live only in .env.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ---- Runtime state ----
+run/
+logs/
+*.log
+!tests/fixtures/*.log
+
+# ---- CAN recordings ----
+# Recordings can be large and real test-day data may be team-confidential.
+# Commit only deliberately chosen samples under tests/fixtures/.
+recordings/*
+!recordings/README.md
+
+# ---- Editor / OS ----
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
