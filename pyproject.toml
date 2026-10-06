@@ -1,0 +1,19 @@
+[project]
+name = "uvfr-telemetry"
+version = "0.1.0"
+description = "UVFR Formula SAE live telemetry (Phase 0: software-only simulation)"
+readme = "README.md"
+requires-python = ">=3.11"
+# Dependencies are installed from requirements*.txt; the code runs from the
+# repository root (no package install step), which keeps the Raspberry Pi
+# deployment a plain directory copy.
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+markers = [
+    "vcan: needs a Linux vcan interface (vcan0 by default, override with UVFR_TEST_CAN_CHANNEL)",
+    "influx: needs a reachable InfluxDB 2 using the credentials in .env",
+    "integration: end-to-end multi-process test",
+]
