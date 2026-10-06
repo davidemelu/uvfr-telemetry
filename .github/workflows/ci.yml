@@ -1,0 +1,30 @@
+name: CI
+
+# Unit tests on every pull request and on main. The vcan, InfluxDB and
+# end-to-end tests need the lab VM (make test-all there before merging
+# changes to CAN, protocol, transport, pit receiver or InfluxDB code).
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        # 3.11: older Raspberry Pi OS (bookworm) on the car. 3.13: lab VM (Debian 13).
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Unit tests
+        run: python -m pytest -m "not vcan and not influx and not integration"
+      - name: Grafana dashboard is up to date with config
+        run: python scripts/generate_dashboard.py --check
