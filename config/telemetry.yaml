@@ -21,6 +21,12 @@ car_node:
   status_print_interval_s: 1.0
   stats_file: run/car_node_stats.json
 
+# CAN log replay (python -m replay <log>). Plays only onto a virtual bus.
+replay:
+  interface: socketcan
+  channel: vcan0
+  control: 127.0.0.1:47030     # python -m replay.ctl ...
+
 # SIMULATED radio (Phase 0 only). Remove it and point both ends at real
 # radios later; nothing else changes.
 link_sim:

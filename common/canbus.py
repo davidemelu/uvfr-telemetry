@@ -19,6 +19,20 @@ import can
 
 # python-can's documented IPv4 default group for the udp_multicast interface.
 UDP_MULTICAST_DEFAULT_GROUP = "239.74.163.2"
+VIRTUAL_INTERFACES = {"udp_multicast", "virtual"}
+
+
+def check_virtual_bus(interface: str, channel: str) -> None:
+    """Exit unless the bus is virtual. Used by every tool that TRANSMITS frames
+    (fake ECU, replay), so simulated or recorded traffic can never reach a car."""
+    if interface in VIRTUAL_INTERFACES:
+        return
+    if interface == "socketcan" and channel.startswith("vcan"):
+        return
+    raise SystemExit(
+        f"refusing to transmit on {interface}:{channel}. Simulated and replayed CAN traffic may only be "
+        "sent on a virtual bus (vcan*, udp_multicast or virtual), never on a vehicle bus."
+    )
 
 
 def _is_ip(value: str) -> bool:

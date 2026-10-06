@@ -28,14 +28,13 @@ if __package__ in (None, ""):  # allow `python simulator/fake_ecu.py`
 
 import can  # noqa: E402
 
-from common.canbus import open_bus  # noqa: E402
+from common.canbus import check_virtual_bus, open_bus  # noqa: E402
 from common.config import ConfigError, load_yaml  # noqa: E402
 from common.control import ControlError, ControlServer  # noqa: E402
 from simulator.scenarios import NORMAL, SCENARIOS, parse_scenarios  # noqa: E402
 from simulator.simulation import Simulator  # noqa: E402
 
 DEFAULT_CONFIG = "config/simulation.yaml"
-VIRTUAL_INTERFACES = {"udp_multicast", "virtual"}
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
@@ -58,18 +57,6 @@ def parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--quiet", action="store_true", help="no periodic status line")
     parser.add_argument("--list-scenarios", action="store_true", help="list scenarios and exit")
     return parser.parse_args(argv)
-
-
-def check_virtual_bus(interface: str, channel: str) -> None:
-    """Refuse to transmit simulated traffic onto anything that could be a car."""
-    if interface in VIRTUAL_INTERFACES:
-        return
-    if interface == "socketcan" and channel.startswith("vcan"):
-        return
-    raise SystemExit(
-        f"refusing to transmit SIMULATED frames on {interface}:{channel}. "
-        "The fake ECU only runs on a virtual bus (vcan*, udp_multicast or virtual)."
-    )
 
 
 def status_line(sim: Simulator, fps: float) -> str:

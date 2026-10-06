@@ -42,6 +42,16 @@ pit: venv ## Run the pit receiver in the foreground
 scenario: venv ## Switch the running fake ECU to SCENARIO
 	$(PY) -m simulator.ctl set $(SCENARIO)
 
+record: venv ## Record vcan0 to recordings/ (DURATION=seconds, optional)
+	$(PY) -m replay.record --channel $(CAN_IFACE) $(if $(DURATION),--duration $(DURATION))
+
+replay: venv ## Replay a log onto vcan0 (LOG=path SPEED=1 LOOP=1); stop the fake ECU first
+	@test -n "$(LOG)" || { echo "usage: make replay LOG=recordings/x.log [SPEED=2] [LOOP=1]"; exit 2; }
+	$(PY) -m replay "$(LOG)" --channel $(CAN_IFACE) --speed $(or $(SPEED),1) $(if $(LOOP),--loop)
+
+bandwidth: venv ## Bandwidth and LoRa airtime report (measures the running car node for 10 s)
+	$(PY) -m bandwidth --measure 10
+
 candump: ## Show live raw CAN traffic on vcan0
 	candump -t A $(CAN_IFACE)
 
@@ -82,5 +92,5 @@ test-vcan: venv ## Multi-process tests on their own bus, vcan1 (safe while the d
 test-influx: venv ## Tests against the running InfluxDB (uses a temporary bucket)
 	$(PY) -m pytest -m influx
 
-.PHONY: help venv vcan sim car-node link-sim link pit scenario candump candump-decoded env infra-up infra-down \
+.PHONY: help venv vcan sim car-node link-sim link pit scenario record replay bandwidth candump candump-decoded env infra-up infra-down \
 	infra-status infra-logs firewall dashboard test test-vcan test-influx

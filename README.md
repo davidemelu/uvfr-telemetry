@@ -54,8 +54,13 @@ DBC and update the channel mapping in `config/channels.yaml`.
 | Car node (decoder, scheduler, binary protocol, transport) | Done: [docs/protocol.md](docs/protocol.md) |
 | Simulated radio link, pit receiver | Done: [docs/architecture.md](docs/architecture.md) |
 | InfluxDB, Grafana dashboard, alerts | Done: [docs/homelab-deployment.md](docs/homelab-deployment.md) |
-| Bandwidth measurement, recording and replay | Next |
-| End-to-end demo, hardware-transition document | Planned |
+| Bandwidth measurement, recording and replay | Done: [docs/bandwidth.md](docs/bandwidth.md), [docs/simulation.md](docs/simulation.md) |
+| End-to-end demo, hardware-transition document | Next |
+
+**Bandwidth headline:** the 13-channel stream needs 2.2 kbit/s encoded
+(968 bit/s of raw values) at 11 packets/s. On LoRa that is 18% airtime at
+SF7 / 500 kHz, 36% at SF7 / 250 kHz, about 70% at SF7 / 125 kHz, and does not
+fit at SF8 / 125 kHz or slower. Details in [docs/bandwidth.md](docs/bandwidth.md).
 
 ## Quick start (so far)
 
@@ -71,6 +76,9 @@ make link-sim LINK=lora_good  # simulated radio: UDP 47001 -> impairment -> UDP 
 make pit                      # pit receiver: decode, link health, alarms, InfluxDB
 make scenario SCENARIO=overheating   # switch the running fake ECU
 make link LINK=lora_bad       # switch the running radio link profile
+make record DURATION=60       # record vcan0 to recordings/
+make replay LOG=recordings/x.log SPEED=2 LOOP=1   # replay (stop the fake ECU first)
+make bandwidth                # bandwidth and LoRa airtime report
 make test                     # unit tests
 make test-vcan                # multi-process tests on vcan1 (safe while the demo uses vcan0)
 ```

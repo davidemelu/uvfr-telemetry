@@ -142,10 +142,38 @@ driving in about a second (the model runs about 200 times faster than real
 time). See `tests/test_vehicle_model.py`, `tests/test_scenarios.py` and
 `tests/test_dbc.py`.
 
+## Recording and replay
+
+```bash
+make record DURATION=60                     # vcan0 -> recordings/vcan0-<timestamp>.log
+python -m replay.record --channel can0 --out recordings/endurance.log   # later, on the car (listen-only)
+
+make replay LOG=recordings/x.log SPEED=2 LOOP=1
+python -m replay recordings/x.log --speed 0.5 --paused
+python -m replay.ctl pause | resume | speed 5 | loop on | status | stop
+```
+
+- Logs are SocketCAN candump format (`candump -l`), so can-utils
+  (`canplayer`, `log2asc`) read them too. The player also reads Vector
+  `.asc`/`.blf`, PCAN `.trc` and CSV through python-can.
+- Playback keeps the original inter-frame timing scaled by the speed (any
+  value from 0.1x to 50x, e.g. 0.5x, 1x, 2x, 5x), loops, and pauses and
+  resumes without a burst. In a terminal: space pauses, `+`/`-` change speed,
+  `l` toggles looping, `q` quits. If the host stalls, playback jumps forward
+  instead of flooding the bus.
+- Frames recorded on `can0` are played onto `vcan0`: the recorded channel
+  name is ignored, so the bus you choose is the only one that receives them.
+- Recording is receive-only. Replay, like the fake ECU, refuses to transmit
+  on anything but a virtual bus.
+- Stop the fake ECU before replaying onto the same bus, or the two streams mix.
+
 ## Replacing the fake ECU with real data
 
 The rest of the pipeline only sees CAN frames on a bus, so the fake ECU can
 be swapped for the replay tool (recorded traffic) or, later, the real car.
+This is tested: `tests/test_replay.py` replays a recorded drive at 2x into
+the unchanged car node and checks the telemetry that comes out.
+
 When real UVFR data arrives, use the real DBC and map telemetry channels to
 its signal names in `config/channels.yaml`; nothing in the car node or pit
 receiver depends on the simulated IDs.
