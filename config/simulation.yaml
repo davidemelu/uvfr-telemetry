@@ -1,0 +1,168 @@
+# Fake ECU and vehicle model configuration. SIMULATION ONLY.
+#
+# None of these numbers come from the real UVFR car. They describe a generic
+# FSAE car with a 600 cc four-cylinder engine, chosen so the telemetry looks
+# like a plausible test session. Every key is required (typos are rejected).
+
+can:
+  interface: socketcan     # python-can interface; "udp_multicast" on hosts without SocketCAN
+  channel: vcan0           # must be a virtual bus; the fake ECU refuses anything else
+dbc: dbc/simulated_uvfr.dbc
+
+physics_hz: 100            # model step rate; every DBC cycle time must be a multiple of 10 ms
+seed: null                 # integer for a repeatable run
+status_print_interval_s: 1.0
+
+control:                   # runtime scenario switching (python -m simulator.ctl)
+  host: 127.0.0.1
+  port: 47020
+
+environment:
+  ambient_c: 22.0
+  initial_coolant_c: 75.0  # car was warmed up in the paddock
+  initial_oil_c: 60.0
+
+vehicle:
+  mass_kg: 290             # car plus driver
+  wheel_radius_m: 0.26
+  cda_m2: 1.3              # drag area including aero package
+  rolling_coeff: 0.02
+  tyre_mu: 1.5
+  driven_axle_load_fraction: 0.55
+  max_brake_decel_g: 1.4
+  driveline_efficiency: 0.88
+
+engine:
+  idle_rpm: 1800
+  rev_limit_rpm: 13500
+  launch_rpm: 7000
+  peak_torque_nm: 55.0     # 600 cc with intake restrictor
+  peak_torque_rpm: 9000
+  torque_curve_width_rpm: 8000
+  friction_torque_nm: 2.0
+  friction_torque_per_krpm: 0.9
+  free_rev_time_constant_s: 0.12
+
+gearbox:
+  primary_ratio: 2.111
+  final_drive_ratio: 3.333
+  gear_ratios: [2.833, 2.067, 1.700, 1.476, 1.333, 1.233]
+  upshift_rpm: 12800
+  downshift_rpm: 6500
+  shift_time_s: 0.06
+
+cooling:
+  heat_to_coolant_fraction: 0.95       # coolant heat per kW of engine output
+  idle_heat_kw: 1.5
+  thermal_capacity_kj_per_k: 45.0      # coolant plus engine metal
+  thermostat_open_c: 80.0
+  thermostat_full_c: 90.0
+  thermostat_bypass_fraction: 0.05
+  radiator_ua_static_kw_per_k: 0.06
+  radiator_ua_per_mps_kw_per_k: 0.017  # ram air through the radiator
+  fan_ua_kw_per_k: 0.12
+  fan_on_c: 96.0
+  fan_off_c: 91.0
+  block_loss_kw_per_k: 0.01
+  head_offset_c: 8.0
+  head_load_rise_c: 30.0
+  head_time_constant_s: 4.0
+  oil_offset_c: 5.0
+  oil_load_rise_c: 15.0
+  oil_time_constant_s: 40.0
+  intake_heat_soak_c: 15.0
+  intake_time_constant_s: 15.0
+
+oil:
+  base_kpa: 60.0
+  kpa_per_rpm: 0.045
+  relief_kpa: 520.0
+  viscosity_coeff_per_c: 0.004
+  reference_temp_c: 90.0
+  time_constant_s: 0.08
+
+fuel:
+  regulated_kpa: 300.0
+  flow_drop_kpa: 12.0
+  lambda_wot: 0.87
+  lambda_cruise: 1.0
+  lambda_overrun: 1.6      # what the wideband reads during fuel cut
+  lambda_time_constant_s: 0.12
+
+electrical:
+  battery_rest_v: 12.8
+  regulator_v: 14.1
+  alternator_cut_in_rpm: 1200
+  base_load_a: 12.0        # ECU, fuel pump, ignition, dash, telemetry
+  fan_load_a: 8.0
+  shift_load_a: 15.0       # shift actuator solenoid during a gear change
+  system_resistance_ohm: 0.02
+  discharge_v_per_s: 0.02  # open-circuit voltage drop while the battery carries the car
+  min_battery_v: 10.5
+  time_constant_s: 0.1
+
+sensor_noise:              # one standard deviation
+  rpm: 10.0
+  throttle_pct: 0.2
+  oil_kpa: 2.5
+  fuel_kpa: 1.2
+  lambda_ratio: 0.004
+  coolant_c: 0.05
+  engine_c: 0.15
+  intake_c: 0.1
+  battery_v: 0.015
+  speed_kmh: 0.05
+  gps_speed_kmh: 0.25
+  gps_delay_s: 0.15
+
+driver:
+  pit_idle_s: 8.0          # sit in neutral before pulling away
+  planned_brake_decel_g: 1.1
+  throttle_noise: 0.03
+  track:                   # loops forever; about 1 km, autocross/endurance style
+    - {name: main-straight,  length_m: 150, target_kmh: 105}
+    - {name: hairpin,        length_m: 45,  target_kmh: 32}
+    - {name: back-straight,  length_m: 110, target_kmh: 90}
+    - {name: slalom,         length_m: 160, target_kmh: 52}
+    - {name: sweeper,        length_m: 130, target_kmh: 62}
+    - {name: short-straight, length_m: 90,  target_kmh: 85}
+    - {name: chicane,        length_m: 60,  target_kmh: 42}
+    - {name: long-straight,  length_m: 170, target_kmh: 108}
+    - {name: final-corner,   length_m: 85,  target_kmh: 48}
+
+# Fault scenarios. Physical faults ramp in over ramp_s and recover over
+# recover_s when switched off.
+scenarios:
+  overheating:
+    cooling_efficiency: 0.15       # fan dead, radiator partly blocked
+    coolant_capacity_factor: 0.6   # some coolant lost
+    ramp_s: 8
+    recover_s: 20
+  low_oil_pressure:
+    pump_factor: 0.3
+    slosh_drop: 0.5                # extra loss under heavy braking (oil surge)
+    ramp_s: 10
+    recover_s: 5
+  battery_voltage_sag:
+    alternator_output: 0.0
+    ramp_s: 3
+    recover_s: 5
+  sensor_dropout:
+    signals: [OilPressure]
+    gap_s: [3, 8]
+    duration_s: [0.5, 2.5]
+  frozen_sensor:
+    signals: [CoolantTemp]
+  can_message_timeout:
+    messages: [SIM_ENGINE_TEMPS]
+  intermittent_can:
+    drop_probability: 0.15
+    burst_gap_s: [4, 10]
+    burst_duration_s: [0.3, 1.5]
+  engine_overrev:
+    upshift_rpm: 14300             # driver shifting late
+    rev_limit_rpm: 14800           # limiter mis-set above the safe limit
+    money_shift_gap_s: [8, 15]
+    money_shift_duration_s: 0.6
+    money_shift_min_kmh: 80        # 3rd -> 2nd above this speed spikes to roughly 14-15k rpm
+    money_shift_gear_drop: 1

@@ -47,11 +47,29 @@ DBC and update the channel mapping in `config/channels.yaml`.
 
 ## Repository status
 
-Phase 0 is being built in this order: homelab VM, vcan0, DBC, fake ECU, car
-node (decoder, scheduler, binary protocol, transport), simulated radio link,
-pit receiver, InfluxDB, Grafana, alerts, bandwidth measurement, recording and
-replay, automated tests, end-to-end demo, then the hardware-transition
-document. This README is expanded as each part lands.
+| Part | Status |
+|---|---|
+| Homelab lab VM, vcan0 | Done: [docs/homelab-deployment.md](docs/homelab-deployment.md) |
+| Simulated DBC, fake ECU, failure scenarios | Done: [docs/simulation.md](docs/simulation.md) |
+| Car node (decoder, scheduler, binary protocol, transport) | Next |
+| Simulated radio link, pit receiver | Planned |
+| InfluxDB, Grafana dashboard, alerts | Planned |
+| Bandwidth measurement, recording and replay | Planned |
+| End-to-end demo, hardware-transition document | Planned |
+
+## Quick start (so far)
+
+On a Linux host with the `vcan` module (the lab VM is already set up):
+
+```bash
+make venv                     # Python virtualenv with pinned dependencies
+make vcan                     # create vcan0 (sudo)
+make sim SCENARIO=normal      # fake ECU on vcan0; Ctrl+C to stop
+make candump-decoded          # in another terminal: decoded live traffic
+make scenario SCENARIO=overheating   # switch the running fake ECU
+make test                     # unit tests
+make test-vcan                # tests that use vcan0
+```
 
 ## Contributing
 
