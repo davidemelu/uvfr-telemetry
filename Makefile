@@ -6,9 +6,23 @@ PY := $(VENV)/bin/python
 CAN_IFACE ?= vcan0
 SCENARIO ?= normal
 LINK ?= perfect
+# The demo defaults to a realistic radio unless LINK is given explicitly.
+DEMO_LINK = $(if $(filter command line environment,$(origin LINK)),$(LINK),lora_good)
 COMPOSE := docker compose --env-file .env -f infrastructure/docker-compose.yml
 
 .DEFAULT_GOAL := help
+
+demo: ## Start the whole simulated system (LINK=lora_good SCENARIO=normal)
+	LINK=$(DEMO_LINK) SCENARIO=$(SCENARIO) CAN_IFACE=$(CAN_IFACE) ./scripts/start-demo.sh
+
+demo-stop: ## Stop the demo (ALL=1 also stops InfluxDB and Grafana)
+	./scripts/stop-demo.sh $(if $(ALL),--all)
+
+demo-status: ## Show demo processes, scenario, radio profile and alarms
+	./scripts/demo-status.sh
+
+demo-overheating: venv ## Scripted check: overheat -> telemetry -> pit -> InfluxDB -> Grafana -> alarm
+	$(PY) scripts/demo_overheating.py
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -90,7 +104,15 @@ test-vcan: venv ## Multi-process tests on their own bus, vcan1 (safe while the d
 	$(PY) -m pytest -m "vcan and not integration"
 
 test-influx: venv ## Tests against the running InfluxDB (uses a temporary bucket)
-	$(PY) -m pytest -m influx
+	$(PY) -m pytest -m "influx and not integration"
 
-.PHONY: help venv vcan sim car-node link-sim link pit scenario record replay bandwidth candump candump-decoded env infra-up infra-down \
-	infra-status infra-logs firewall dashboard test test-vcan test-influx
+test-e2e: venv ## End to end: fake ECU -> vcan1 -> car node -> radio -> pit -> InfluxDB (about 1 min)
+	./scripts/setup-vcan.sh vcan1 >/dev/null
+	$(PY) -m pytest -m integration
+
+test-all: venv ## Every test, including vcan, InfluxDB and end-to-end
+	./scripts/setup-vcan.sh vcan1 >/dev/null
+	$(PY) -m pytest
+
+.PHONY: demo demo-stop demo-status demo-overheating help venv vcan sim car-node link-sim link pit scenario record replay bandwidth candump candump-decoded env infra-up infra-down \
+	infra-status infra-logs firewall dashboard test test-vcan test-influx test-e2e test-all

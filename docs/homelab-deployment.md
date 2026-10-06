@@ -178,6 +178,22 @@ The dashboard defaults to a 2 s refresh, which halves the viewing cost; 1 s
 works for one viewer. With 2 vCPUs, more than two viewers at 1 s would
 saturate the VM. The four Python processes together use under 6% of a core.
 
+## Running the demo
+
+```bash
+ssh uvfr-lab
+cd /opt/uvfr-telemetry
+make demo                  # idempotent: restarts the Python processes, keeps the database
+make demo-overheating      # scripted end-to-end check of the Phase 0 success criteria
+make demo-status
+make demo-stop             # ALL=1 also stops InfluxDB and Grafana
+```
+
+`scripts/start-demo.sh` sets up vcan0, runs `make infra-up`, then starts the
+pit receiver, simulated radio (`LINK`, default `lora_good`), car node and fake
+ECU (`SCENARIO`, default `normal`) as detached processes. PIDs are in `run/`,
+logs in `logs/`. It waits until telemetry reaches the pit before returning.
+
 ## Day-to-day
 
 - `scripts/deploy.sh` copies your working tree (tracked files plus new,
