@@ -1,0 +1,81 @@
+# Telemetry channels: what the car node sends over the radio, and how often.
+#
+# The car node keeps the latest decoded value of every CAN signal it listens
+# to, but the radio link is slow, so only these channels are transmitted, each
+# at its own rate. CAN frames are never forwarded one-for-one.
+#
+# ORDER MATTERS. A channel's position in this list is its identifier on the
+# air, so the car node and the pit receiver must use the same file. Append new
+# channels at the end. Every STATUS packet carries a hash of this layout and
+# the pit receiver raises an alarm if it does not match its own copy.
+#
+# Fields
+#   name            telemetry channel name (used in InfluxDB, Grafana, alerts)
+#   signal          MESSAGE.Signal in the DBC
+#   rate_hz         how often it is sent; must divide protocol.base_rate_hz
+#   wire            on-air encoding: type u8 | i8 | u16 | i16, scale, offset
+#                   physical = raw * scale + offset. The two highest raw values
+#                   (lowest for signed types) are reserved for NO DATA / STALE.
+#   stale_after_ms  car side: if the CAN value is older than this it is sent
+#                   as STALE. Optional; default is 5 x the CAN cycle time,
+#                   at least 250 ms.
+
+protocol:
+  base_rate_hz: 10     # scheduler tick, also the maximum channel rate
+  status_rate_hz: 1    # STATUS packets: CAN health and transmit counters
+
+channels:
+  - name: rpm
+    signal: SIM_ENGINE_FAST.EngineSpeed
+    rate_hz: 10
+    wire: {type: u16, scale: 1, offset: 0}
+  - name: throttle_position
+    signal: SIM_ENGINE_FAST.ThrottlePosition
+    rate_hz: 10
+    wire: {type: u8, scale: 0.5, offset: 0}       # 0.5 % steps
+  - name: vehicle_speed
+    signal: SIM_VEHICLE.VehicleSpeed
+    rate_hz: 10
+    wire: {type: u16, scale: 0.01, offset: 0}
+  - name: oil_pressure
+    signal: SIM_ENGINE_PRESSURES.OilPressure
+    rate_hz: 10
+    wire: {type: u16, scale: 0.1, offset: 0}
+  - name: gear
+    signal: SIM_ENGINE_FAST.Gear
+    rate_hz: 5
+    wire: {type: u8, scale: 1, offset: 0}
+  - name: coolant_temperature
+    signal: SIM_ENGINE_TEMPS.CoolantTemp
+    rate_hz: 5
+    wire: {type: i16, scale: 0.1, offset: 0}
+  - name: lambda
+    signal: SIM_ENGINE_PRESSURES.Lambda
+    rate_hz: 5
+    wire: {type: u16, scale: 0.001, offset: 0}
+  - name: gps_speed
+    signal: SIM_GPS.GpsSpeed
+    rate_hz: 5
+    wire: {type: u16, scale: 0.01, offset: 0}
+  - name: battery_voltage
+    signal: SIM_ELECTRICAL.BatteryVoltage
+    rate_hz: 2
+    wire: {type: u16, scale: 0.01, offset: 0}
+  - name: engine_temperature
+    signal: SIM_ENGINE_TEMPS.EngineTemp
+    rate_hz: 2
+    wire: {type: i16, scale: 0.1, offset: 0}
+  - name: fuel_pressure
+    signal: SIM_ENGINE_PRESSURES.FuelPressure
+    rate_hz: 2
+    wire: {type: u16, scale: 0.1, offset: 0}
+  - name: intake_air_temperature
+    signal: SIM_ENGINE_TEMPS.IntakeAirTemp
+    rate_hz: 1
+    wire: {type: i16, scale: 0.1, offset: 0}
+  # Lab only: which fault scenarios the fake ECU is running. Shows NO DATA on
+  # a real car (no SIM_STATUS message). Not counted as a vehicle channel.
+  - name: sim_scenario
+    signal: SIM_STATUS.SimScenarioMask
+    rate_hz: 1
+    wire: {type: u16, scale: 1, offset: 0}

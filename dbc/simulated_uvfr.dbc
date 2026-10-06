@@ -69,7 +69,7 @@ BO_ 288 SIM_GPS: 8 SIM_GPS
  SG_ Gps_Counter : 60|4@1+ (1,0) [0|15] "" TELEMETRY_NODE
 
 BO_ 2032 SIM_STATUS: 8 SIM_HARNESS
- SG_ SimScenarioMask : 0|16@1+ (1,0) [0|65535] "" TELEMETRY_NODE
+ SG_ SimScenarioMask : 0|16@1+ (1,0) [0|255] "" TELEMETRY_NODE
  SG_ SimElapsed : 16|16@1+ (1,0) [0|65535] "s" TELEMETRY_NODE
  SG_ SimStatus_Counter : 60|4@1+ (1,0) [0|15] "" TELEMETRY_NODE
 
