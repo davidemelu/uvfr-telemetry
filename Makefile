@@ -5,6 +5,7 @@ VENV := .venv
 PY := $(VENV)/bin/python
 CAN_IFACE ?= vcan0
 SCENARIO ?= normal
+LINK ?= perfect
 
 .DEFAULT_GOAL := help
 
@@ -28,6 +29,15 @@ sim: venv ## Run the fake ECU in the foreground (SCENARIO=normal|overheating|...
 car-node: venv ## Run the car telemetry node in the foreground
 	$(PY) -m car_node
 
+link-sim: venv ## Run the simulated radio link (LINK=perfect|lora_good|lora_marginal|lora_bad|congested)
+	$(PY) -m link_sim --profile $(LINK)
+
+link: venv ## Switch the running radio link to profile LINK
+	$(PY) -m link_sim.ctl profile $(LINK)
+
+pit: venv ## Run the pit receiver in the foreground
+	$(PY) -m pit_receiver
+
 scenario: venv ## Switch the running fake ECU to SCENARIO
 	$(PY) -m simulator.ctl set $(SCENARIO)
 
@@ -43,4 +53,4 @@ test: venv ## Unit tests (no vcan, InfluxDB or Docker needed)
 test-vcan: venv ## Tests that need a vcan interface
 	$(PY) -m pytest -m "vcan and not integration"
 
-.PHONY: help venv vcan sim car-node scenario candump candump-decoded test test-vcan
+.PHONY: help venv vcan sim car-node link-sim link pit scenario candump candump-decoded test test-vcan

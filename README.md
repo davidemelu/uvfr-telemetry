@@ -52,8 +52,8 @@ DBC and update the channel mapping in `config/channels.yaml`.
 | Homelab lab VM, vcan0 | Done: [docs/homelab-deployment.md](docs/homelab-deployment.md) |
 | Simulated DBC, fake ECU, failure scenarios | Done: [docs/simulation.md](docs/simulation.md) |
 | Car node (decoder, scheduler, binary protocol, transport) | Done: [docs/protocol.md](docs/protocol.md) |
-| Simulated radio link, pit receiver | Next |
-| InfluxDB, Grafana dashboard, alerts | Planned |
+| Simulated radio link, pit receiver | Done: [docs/architecture.md](docs/architecture.md) |
+| InfluxDB, Grafana dashboard, alerts | Next |
 | Bandwidth measurement, recording and replay | Planned |
 | End-to-end demo, hardware-transition document | Planned |
 
@@ -67,7 +67,10 @@ make vcan                     # create vcan0 (sudo)
 make sim SCENARIO=normal      # fake ECU on vcan0; Ctrl+C to stop
 make candump-decoded          # in another terminal: decoded live traffic
 make car-node                 # car telemetry node: vcan0 in, binary telemetry out (UDP 47001)
+make link-sim LINK=lora_good  # simulated radio: UDP 47001 -> impairment -> UDP 47002
+make pit                      # pit receiver: decode, link health, latest values
 make scenario SCENARIO=overheating   # switch the running fake ECU
+make link LINK=lora_bad       # switch the running radio link profile
 make test                     # unit tests
 make test-vcan                # tests that use vcan0
 ```
