@@ -2,21 +2,14 @@
 
 from __future__ import annotations
 
-import csv
 import gzip
-import json
-import os
 import threading
 import time
-import urllib.error
-import urllib.request
-import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import pytest
 
 from common.config import ConfigError
-from common.env import load_env
 from pit_receiver.influx_sink import InfluxConfig, InfluxSink
 from pit_receiver.points import Point
 
@@ -151,33 +144,6 @@ def test_health_fields(fake):
 
 
 # ------------------------------------------------------------ real InfluxDB
-@pytest.fixture
-def influx():
-    load_env()
-    url, token, org = os.environ.get("INFLUX_URL"), os.environ.get("INFLUX_TOKEN"), os.environ.get("INFLUX_ORG")
-    if not (url and token and org) or token.startswith("change-me"):
-        pytest.skip("no InfluxDB credentials in .env (run make infra-up)")
-    try:
-        urllib.request.urlopen(f"{url}/health", timeout=2)
-    except (urllib.error.URLError, OSError):
-        pytest.skip(f"InfluxDB not reachable at {url}")
-
-    def api(method, path, body=None, content_type="application/json"):
-        data = body if isinstance(body, bytes) else (json.dumps(body).encode() if body is not None else None)
-        req = urllib.request.Request(f"{url}{path}", data=data, method=method,
-                                     headers={"Authorization": f"Token {token}", "Content-Type": content_type,
-                                              "Accept": "application/csv"})
-        with urllib.request.urlopen(req, timeout=10) as r:
-            return r.read()
-
-    orgs = json.loads(api("GET", f"/api/v2/orgs?org={org}"))
-    bucket = f"test_{uuid.uuid4().hex[:8]}"
-    created = json.loads(api("POST", "/api/v2/buckets", {"orgID": orgs["orgs"][0]["id"], "name": bucket,
-                                                          "retentionRules": [{"type": "expire", "everySeconds": 3600}]}))
-    yield {"url": url, "token": token, "org": org, "bucket": bucket, "api": api}
-    api("DELETE", f"/api/v2/buckets/{created['id']}")
-
-
 @pytest.mark.influx
 def test_real_influxdb_round_trip(influx):
     sink = InfluxSink(InfluxConfig(url=influx["url"], org=influx["org"], bucket=influx["bucket"], token=influx["token"]),
@@ -189,10 +155,8 @@ def test_real_influxdb_round_trip(influx):
     sink.write(points)
     while sink.buffered:
         assert sink.flush_once(), sink.last_error
-    flux = (f'from(bucket: "{influx["bucket"]}") |> range(start: -5m) '
-            f'|> filter(fn: (r) => r.car == "pytest") |> group(columns: ["_field"]) |> count()')
-    text = influx["api"]("POST", f"/api/v2/query?org={influx['org']}", flux.encode(), "application/vnd.flux").decode()
-    rows = csv.DictReader(line for line in text.splitlines() if line.strip())
+    rows = influx["query"](f'from(bucket: "{influx["bucket"]}") |> range(start: -5m) '
+                           f'|> filter(fn: (r) => r.car == "pytest") |> group(columns: ["_field"]) |> count()')
     counts = {r["_field"]: int(r["_value"]) for r in rows if r.get("_field")}
     assert counts.get("rpm") == 50 and counts.get("coolant_temperature") == 50
     assert counts.get("message") == 1
