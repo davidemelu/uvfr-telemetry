@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     control = None
     if not args.no_control:
         host = cfg["control"]["host"]
-        port = args.control_port or cfg["control"]["port"]
+        port = args.control_port if args.control_port is not None else cfg["control"]["port"]
         try:
             control = ControlServer(host, port, ControlHandler(sim))
         except ControlError as exc:

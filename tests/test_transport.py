@@ -237,6 +237,36 @@ def test_bandwidth_cap_queues_then_tail_drops():
     assert len(inner.sent) * 100 * 8 <= 40_000 * (1.0 + 0.5) + 800 * 20
 
 
+def test_per_packet_airtime_overhead():
+    link, inner, clock = impaired(bandwidth_bps=8000, packet_overhead_ms=20)
+    assert link.airtime_s(25) == pytest.approx(25 * 8 / 8000 + 0.020)
+    link.send(b"x" * 25)
+    clock.t += 0.044
+    assert link.pump() == 0
+    clock.t += 0.002
+    assert link.pump() == 1
+
+
+def test_switching_profile_retimes_the_queue():
+    link, inner, clock = impaired(bandwidth_bps=800, max_queue_packets=50)  # 10 packets = 1 s each
+    for _ in range(10):
+        link.send(b"x" * 100)
+    assert link.pump() == 0
+    link.set_impairment(Impairment())  # suddenly a perfect link
+    assert link.pump() == 10  # delivered now, not 10 s later
+
+
+def test_queued_packets_are_lost_during_an_outage():
+    link, inner, clock = impaired(latency_ms=500)
+    for _ in range(5):
+        link.send(b"in flight")
+    link.force_outage(1.0)
+    clock.t += 0.6
+    link.pump()
+    assert inner.sent == []
+    assert link.link.dropped_outage == 5
+
+
 def test_runtime_impairment_change():
     link, inner, clock = impaired()
     link.set_impairment(Impairment(loss_pct=100))

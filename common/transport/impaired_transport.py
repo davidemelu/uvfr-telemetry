@@ -4,10 +4,12 @@ Models, per packet:
   loss         random drops (loss_pct)
   corruption   one random bit flipped (corrupt_pct); the CRC must catch it
   latency      fixed delay (latency_ms) plus uniform jitter (+/- jitter_ms)
-  bandwidth    serialisation time at bandwidth_bps; packets queue behind each
-               other and are tail-dropped when max_queue_packets is exceeded,
-               which is what a serial radio's buffer does when it is
-               offered more than it can send
+  bandwidth    serialisation time at bandwidth_bps plus a fixed per-packet
+               airtime (packet_overhead_ms: radio preamble, header and
+               turnaround, which is why a radio's headline bit rate is never
+               all usable); packets queue behind each other and are
+               tail-dropped when max_queue_packets is exceeded, which is what a
+               serial radio's buffer does when offered more than it can send
   outages      scheduled (outage_every_s / outage_duration_s) or forced at
                runtime (force_outage): everything is dropped
 
@@ -37,6 +39,7 @@ class Impairment:
     jitter_ms: float = 0.0
     corrupt_pct: float = 0.0
     bandwidth_bps: float = 0.0  # 0 = unlimited
+    packet_overhead_ms: float = 0.0  # fixed airtime per packet
     max_queue_packets: int = 64
     allow_reorder: bool = False
     outage_every_s: float = 0.0  # 0 = no scheduled outages
@@ -46,7 +49,8 @@ class Impairment:
         for name in ("loss_pct", "corrupt_pct"):
             if not 0.0 <= getattr(self, name) <= 100.0:
                 raise ValueError(f"{name} must be between 0 and 100")
-        for name in ("latency_ms", "jitter_ms", "bandwidth_bps", "outage_every_s", "outage_duration_s"):
+        for name in ("latency_ms", "jitter_ms", "bandwidth_bps", "packet_overhead_ms", "outage_every_s",
+                     "outage_duration_s"):
             if getattr(self, name) < 0:
                 raise ValueError(f"{name} must not be negative")
         if self.max_queue_packets < 1:
@@ -83,8 +87,9 @@ class ImpairmentStats:
     queue_peak: int = 0
     bytes_offered: int = 0
     bytes_delivered: int = 0
+    airtime_s: float = 0.0  # total simulated time the radio spent transmitting
 
-    def as_dict(self) -> dict[str, int]:
+    def as_dict(self) -> dict[str, float]:
         return asdict(self)
 
 
@@ -126,8 +131,19 @@ class ImpairedTransport(Transport):
 
     # ----------------------------------------------------------- runtime control
     def set_impairment(self, impairment: Impairment) -> None:
+        """Switch impairment now. Queued packets are re-timed on the new link,
+        so a change takes effect immediately instead of after the old queue
+        drains at the old rate."""
         with self._cond:
             self.impairment = impairment
+            now = self._clock()
+            queued = [entry[2] for entry in sorted(self._queue)]
+            self._queue.clear()
+            self._link_free_at = now
+            self._last_delivery = now
+            for packet in queued[: impairment.max_queue_packets]:
+                self._schedule(packet, now)
+            self.link.dropped_queue += max(0, len(queued) - impairment.max_queue_packets)
             self._cond.notify()
 
     def force_outage(self, duration_s: float) -> None:
@@ -147,6 +163,11 @@ class ImpairedTransport(Transport):
     @property
     def queue_length(self) -> int:
         return len(self._queue)
+
+    def airtime_s(self, nbytes: int) -> float:
+        i = self.impairment
+        bits = nbytes * 8 / i.bandwidth_bps if i.bandwidth_bps else 0.0
+        return bits + i.packet_overhead_ms / 1000.0
 
     # ------------------------------------------------------------------- send
     def send(self, packet: bytes) -> bool:
@@ -173,30 +194,43 @@ class ImpairedTransport(Transport):
                 packet = bytes(data)
                 self.link.corrupted += 1
 
-            start = max(now, self._link_free_at)
-            airtime = len(packet) * 8 / i.bandwidth_bps if i.bandwidth_bps else 0.0
-            self._link_free_at = start + airtime
-            delay = i.latency_ms / 1000.0
-            if i.jitter_ms:
-                delay += self._rng.uniform(-i.jitter_ms, i.jitter_ms) / 1000.0
-            deliver_at = start + airtime + max(0.0, delay)
-            if not i.allow_reorder:
-                deliver_at = max(deliver_at, self._last_delivery)
-            self._last_delivery = max(self._last_delivery, deliver_at)
-            heapq.heappush(self._queue, (deliver_at, next(self._order), packet))
-            self.link.queue_peak = max(self.link.queue_peak, len(self._queue))
+            self._schedule(packet, now)
             self.stats.packets_sent += 1
             self.stats.bytes_sent += len(packet)
             self._cond.notify()
             return True
 
+    def _schedule(self, packet: bytes, now: float) -> None:
+        """Queue a packet behind the ones already on the air. Caller holds the lock."""
+        i = self.impairment
+        start = max(now, self._link_free_at)
+        airtime = self.airtime_s(len(packet))
+        self.link.airtime_s += airtime
+        self._link_free_at = start + airtime
+        delay = i.latency_ms / 1000.0
+        if i.jitter_ms:
+            delay += self._rng.uniform(-i.jitter_ms, i.jitter_ms) / 1000.0
+        deliver_at = start + airtime + max(0.0, delay)
+        if not i.allow_reorder:
+            deliver_at = max(deliver_at, self._last_delivery)
+        self._last_delivery = max(self._last_delivery, deliver_at)
+        heapq.heappush(self._queue, (deliver_at, next(self._order), packet))
+        self.link.queue_peak = max(self.link.queue_peak, len(self._queue))
+
     def pump(self, now: float | None = None) -> int:
-        """Deliver every packet that is due. Returns how many were delivered."""
+        """Deliver every packet that is due. Returns how many were delivered.
+
+        Packets that come due during an outage are lost, like a radio
+        transmitting while the other end cannot hear it."""
         due: list[bytes] = []
         with self._cond:
             now = self._clock() if now is None else now
             while self._queue and self._queue[0][0] <= now:
-                due.append(heapq.heappop(self._queue)[2])
+                packet = heapq.heappop(self._queue)[2]
+                if self.in_outage(now):
+                    self.link.dropped_outage += 1
+                else:
+                    due.append(packet)
         for packet in due:
             if self.inner.send(packet):
                 self.link.delivered += 1

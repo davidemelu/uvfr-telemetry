@@ -20,3 +20,61 @@ car_node:
     # baudrate: 57600
   status_print_interval_s: 1.0
   stats_file: run/car_node_stats.json
+
+# SIMULATED radio (Phase 0 only). Remove it and point both ends at real
+# radios later; nothing else changes.
+link_sim:
+  listen: 127.0.0.1:47001
+  forward_to: 127.0.0.1:47002
+  control: 127.0.0.1:47010     # python -m link_sim.ctl ...
+  profile: perfect
+  seed: null
+  status_print_interval_s: 1.0
+  # Impairment presets. LoRa numbers are approximations for planning, not
+  # measurements of the real modems: SF7 / 125 kHz / CR 4/5 carries about
+  # 5.47 kbit/s raw, and every packet also costs preamble + header airtime.
+  profiles:
+    perfect: {}
+    lora_good:                 # strong signal, line of sight
+      loss_pct: 1
+      latency_ms: 80
+      jitter_ms: 20
+      bandwidth_bps: 5470
+      packet_overhead_ms: 20
+      max_queue_packets: 32
+    lora_marginal:             # far side of the track, some obstruction
+      loss_pct: 5
+      latency_ms: 120
+      jitter_ms: 60
+      corrupt_pct: 0.5
+      bandwidth_bps: 5470
+      packet_overhead_ms: 20
+      max_queue_packets: 32
+    lora_bad:                  # behind buildings, periodic dropouts
+      loss_pct: 10
+      latency_ms: 200
+      jitter_ms: 120
+      corrupt_pct: 1
+      bandwidth_bps: 5470
+      packet_overhead_ms: 20
+      max_queue_packets: 32
+      outage_every_s: 30
+      outage_duration_s: 3
+    congested:                 # SF9 / 125 kHz (about 1.76 kbit/s): slower than the stream needs
+      latency_ms: 50
+      bandwidth_bps: 1760
+      packet_overhead_ms: 80
+      max_queue_packets: 16
+
+pit_receiver:
+  transport:
+    type: udp
+    listen: 127.0.0.1:47002    # Phase 0: from link_sim. Later: serial USB LoRa modem
+  car_id: uvfr-sim
+  health_interval_s: 1.0       # link health and channel state points
+  rate_window_s: 5.0           # packet rate averaging window
+  loss_window_packets: 100     # "recent" packet loss window (about 9 s)
+  clock_window_s: 30.0         # car-to-pit clock offset window
+  status_print_interval_s: 1.0
+  outputs:
+    jsonl: null                # e.g. logs/pit_points.jsonl to keep every point on disk
