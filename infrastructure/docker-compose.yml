@@ -1,0 +1,82 @@
+# UVFR telemetry lab backend: InfluxDB 2 + Grafana.
+#
+#   make infra-up      # creates .env if needed, starts both, creates scoped tokens
+#   make infra-down    # stops them (data is kept in the named volumes)
+#
+# Exposure: InfluxDB is published on 127.0.0.1 only (the pit receiver runs on
+# this VM). Grafana is published on the LAN, behind a login; the DOCKER-USER
+# firewall rule (infrastructure/firewall/) drops anything that is not from a
+# private or Tailscale address. Never port-forward either service.
+name: uvfr-telemetry
+
+services:
+  influxdb:
+    image: influxdb:2.9.1
+    container_name: uvfr-influxdb
+    restart: unless-stopped
+    ports:
+      - "${INFLUX_BIND:-127.0.0.1}:8086:8086"
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_ADMIN_USER:?set INFLUX_ADMIN_USER in .env}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD:?set INFLUX_ADMIN_PASSWORD in .env}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG:?set INFLUX_ORG in .env}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:?set INFLUX_BUCKET in .env}
+      DOCKER_INFLUXDB_INIT_RETENTION: ${INFLUX_RETENTION:-30d}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?set INFLUX_TOKEN in .env}
+      INFLUXD_REPORTING_DISABLED: "true"
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+      - influxdb-config:/etc/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    networks: [telemetry]
+
+  grafana:
+    image: grafana/grafana:13.2.3
+    container_name: uvfr-grafana
+    restart: unless-stopped
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    ports:
+      - "${GRAFANA_BIND:-0.0.0.0}:${GRAFANA_PORT:-3000}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:?set GRAFANA_ADMIN_USER in .env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_DASHBOARDS_MIN_REFRESH_INTERVAL: 1s
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/uvfr-pit-telemetry.json
+      # Read by the datasource provisioning file. Read-only token, see make infra-up.
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+      GRAFANA_INFLUX_TOKEN: ${GRAFANA_INFLUX_TOKEN:-not-created-yet}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    healthcheck:
+      # The first start runs several hundred database migrations (about a minute).
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:3000/api/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [telemetry]
+
+volumes:
+  influxdb-data:
+  influxdb-config:
+  grafana-data:
+
+networks:
+  telemetry:

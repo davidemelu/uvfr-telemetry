@@ -1,0 +1,13 @@
+apiVersion: 1
+
+# Dashboards are generated from config (make dashboard) and provisioned
+# read-only. Edit config/dashboard.yaml or config/alerts.yaml, not the JSON.
+providers:
+  - name: uvfr
+    folder: UVFR Telemetry
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 10
+    options:
+      path: /etc/grafana/dashboards
