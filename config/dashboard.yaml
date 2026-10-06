@@ -1,0 +1,49 @@
+# Grafana pit dashboard layout. `make dashboard` generates
+# infrastructure/grafana/dashboards/uvfr-pit-telemetry.json from this file.
+#
+# No alarm thresholds here: gauge colours and graph threshold lines are read
+# from config/alerts.yaml, so the dashboard always matches the alarms.
+# Units are Grafana unit ids (rotrpm, celsius, pressurekpa, volt, percent,
+# velocitykmh, none, ...). min/max are display ranges only.
+
+title: UVFR Pit Telemetry (SIMULATED)
+uid: uvfr-pit
+# One browser at 1 s refresh costs about one VM core (Grafana + InfluxDB,
+# measured). 2 s halves that; pick 1s in the time picker for a single viewer.
+refresh: 2s
+car: uvfr-sim            # must match pit_receiver.car_id in telemetry.yaml
+bucket: telemetry        # must match INFLUX_BUCKET in .env
+
+labels:                  # display names for channels
+  rpm: RPM
+  throttle_position: Throttle
+  vehicle_speed: Wheel speed
+  gps_speed: GPS speed
+  oil_pressure: Oil pressure
+  fuel_pressure: Fuel pressure
+  gear: Gear
+  coolant_temperature: Coolant
+  engine_temperature: Cylinder head
+  intake_air_temperature: Intake air
+  lambda: Lambda
+  battery_voltage: Battery
+
+gauges:
+  - {channel: rpm, unit: rotrpm, min: 0, max: 15000, decimals: 0}
+  - {channel: coolant_temperature, unit: celsius, min: 40, max: 130, decimals: 1}
+  - {channel: oil_pressure, unit: pressurekpa, min: 0, max: 600, decimals: 0}
+  - {channel: battery_voltage, unit: volt, min: 10, max: 15, decimals: 2}
+  - {channel: throttle_position, unit: percent, min: 0, max: 100, decimals: 0}
+  - {channel: vehicle_speed, unit: velocitykmh, min: 0, max: 130, decimals: 0}
+
+# time: the fixed window a graph shows (1m, 5m or 15m), independent of the
+# dashboard time picker. agg: how points are combined when zoomed out.
+graphs:
+  - {title: RPM and throttle, time: 1m, channels: [rpm, throttle_position], unit: rotrpm, right: {throttle_position: percent}, agg: max, width: 12}
+  - {title: Wheel speed vs GPS speed, time: 1m, channels: [vehicle_speed, gps_speed], unit: velocitykmh, agg: mean, width: 12}
+  - {title: Oil and fuel pressure, time: 5m, channels: [oil_pressure, fuel_pressure], unit: pressurekpa, thresholds: oil_pressure, agg: min, width: 8}
+  - {title: Battery voltage, time: 5m, channels: [battery_voltage], unit: volt, thresholds: battery_voltage, agg: min, width: 8}
+  - {title: Lambda, time: 5m, channels: [lambda], unit: none, agg: mean, width: 8}
+  - {title: Coolant and cylinder head temperature, time: 15m, channels: [coolant_temperature, engine_temperature], unit: celsius, thresholds: coolant_temperature, agg: max, width: 12}
+  - {title: Intake air temperature, time: 15m, channels: [intake_air_temperature], unit: celsius, agg: mean, width: 6}
+  - {title: Gear, time: 1m, channels: [gear], unit: none, agg: last, width: 6}

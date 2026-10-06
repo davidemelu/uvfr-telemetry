@@ -6,6 +6,7 @@ PY := $(VENV)/bin/python
 CAN_IFACE ?= vcan0
 SCENARIO ?= normal
 LINK ?= perfect
+COMPOSE := docker compose --env-file .env -f infrastructure/docker-compose.yml
 
 .DEFAULT_GOAL := help
 
@@ -47,10 +48,39 @@ candump: ## Show live raw CAN traffic on vcan0
 candump-decoded: venv ## Show live CAN traffic decoded with the DBC
 	candump $(CAN_IFACE) | $(PY) -m cantools decode --single-line dbc/simulated_uvfr.dbc
 
+env: ## Create .env with random secrets (never overwrites an existing one)
+	./scripts/init-env.sh
+
+infra-up: env dashboard ## Start InfluxDB + Grafana and create scoped InfluxDB tokens
+	$(COMPOSE) up -d --wait influxdb
+	./infrastructure/influxdb/create-tokens.sh
+	$(COMPOSE) up -d --wait
+	@echo "Grafana: http://$$(hostname -I | awk '{print $$1}'):3000  (login: GRAFANA_ADMIN_USER / GRAFANA_ADMIN_PASSWORD in .env)"
+
+infra-down: ## Stop InfluxDB + Grafana (data stays in Docker volumes)
+	$(COMPOSE) down
+
+infra-status: ## Show backend container status
+	$(COMPOSE) ps
+
+infra-logs: ## Follow backend logs
+	$(COMPOSE) logs -f --tail=50
+
+firewall: ## Limit published Docker ports to LAN/VPN sources (sudo, lab VM)
+	sudo ./infrastructure/firewall/install.sh
+
+dashboard: venv ## Regenerate the Grafana dashboard from config/*.yaml
+	$(PY) scripts/generate_dashboard.py
+
 test: venv ## Unit tests (no vcan, InfluxDB or Docker needed)
 	$(PY) -m pytest -m "not vcan and not influx and not integration"
 
-test-vcan: venv ## Tests that need a vcan interface
+test-vcan: venv ## Multi-process tests on their own bus, vcan1 (safe while the demo runs on vcan0)
+	./scripts/setup-vcan.sh vcan1 >/dev/null
 	$(PY) -m pytest -m "vcan and not integration"
 
-.PHONY: help venv vcan sim car-node link-sim link pit scenario candump candump-decoded test test-vcan
+test-influx: venv ## Tests against the running InfluxDB (uses a temporary bucket)
+	$(PY) -m pytest -m influx
+
+.PHONY: help venv vcan sim car-node link-sim link pit scenario candump candump-decoded env infra-up infra-down \
+	infra-status infra-logs firewall dashboard test test-vcan test-influx

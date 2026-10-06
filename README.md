@@ -53,8 +53,8 @@ DBC and update the channel mapping in `config/channels.yaml`.
 | Simulated DBC, fake ECU, failure scenarios | Done: [docs/simulation.md](docs/simulation.md) |
 | Car node (decoder, scheduler, binary protocol, transport) | Done: [docs/protocol.md](docs/protocol.md) |
 | Simulated radio link, pit receiver | Done: [docs/architecture.md](docs/architecture.md) |
-| InfluxDB, Grafana dashboard, alerts | Next |
-| Bandwidth measurement, recording and replay | Planned |
+| InfluxDB, Grafana dashboard, alerts | Done: [docs/homelab-deployment.md](docs/homelab-deployment.md) |
+| Bandwidth measurement, recording and replay | Next |
 | End-to-end demo, hardware-transition document | Planned |
 
 ## Quick start (so far)
@@ -68,12 +68,24 @@ make sim SCENARIO=normal      # fake ECU on vcan0; Ctrl+C to stop
 make candump-decoded          # in another terminal: decoded live traffic
 make car-node                 # car telemetry node: vcan0 in, binary telemetry out (UDP 47001)
 make link-sim LINK=lora_good  # simulated radio: UDP 47001 -> impairment -> UDP 47002
-make pit                      # pit receiver: decode, link health, latest values
+make pit                      # pit receiver: decode, link health, alarms, InfluxDB
 make scenario SCENARIO=overheating   # switch the running fake ECU
 make link LINK=lora_bad       # switch the running radio link profile
 make test                     # unit tests
-make test-vcan                # tests that use vcan0
+make test-vcan                # multi-process tests on vcan1 (safe while the demo uses vcan0)
 ```
+
+Backend (Docker):
+
+```bash
+make infra-up                 # InfluxDB + Grafana, secrets in .env, scoped tokens
+make firewall                 # once on the lab VM: published ports limited to LAN/VPN
+make dashboard                # regenerate the Grafana dashboard from config/*.yaml
+make test-influx              # round trip against the running InfluxDB
+```
+
+Grafana: `http://<lab VM>:3000`, login in the VM's `.env`
+(`GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`).
 
 ## Contributing
 
