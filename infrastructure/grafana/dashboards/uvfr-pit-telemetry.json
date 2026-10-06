@@ -2946,7 +2946,7 @@
     },
     {
       "type": "row",
-      "title": "Alarms",
+      "title": "Telemetry bandwidth (measured at the pit; see docs/bandwidth.md for LoRa airtime)",
       "collapsed": false,
       "panels": [],
       "gridPos": {
@@ -2956,6 +2956,583 @@
         "y": 65
       },
       "id": 38
+    },
+    {
+      "type": "stat",
+      "title": "Encoded stream",
+      "description": "Every byte of every valid packet: header, bitmap, values, CRC, STATUS.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 0,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"encoded_bits_per_s\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 39
+    },
+    {
+      "type": "stat",
+      "title": "Raw channel payload",
+      "description": "Channel value bytes only.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 4,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"payload_bits_per_s\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 40
+    },
+    {
+      "type": "stat",
+      "title": "With serial framing",
+      "description": "What a COBS-framed serial radio link carries (+2 bytes per packet).",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 8,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"serial_framed_bits_per_s\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 41
+    },
+    {
+      "type": "stat",
+      "title": "Packets per second",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 12,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"packets_per_s\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "suffix: pkt/s",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 42
+    },
+    {
+      "type": "stat",
+      "title": "Average packet size",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 16,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"avg_packet_bytes\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 43
+    },
+    {
+      "type": "stat",
+      "title": "Protocol overhead",
+      "description": "Share of encoded bytes that are not channel values.",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 4,
+        "x": 20,
+        "y": 66
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -10s)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"overhead_pct\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "NO DATA",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "auto",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "wideLayout": true,
+        "showPercentChange": false
+      },
+      "id": 44
+    },
+    {
+      "type": "bargauge",
+      "title": "Bandwidth by channel",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 70
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: -15s)\n  |> filter(fn: (r) => r._measurement == \"channel_bandwidth\" and r.car == \"${car}\" and r._field == \"bits_per_s\")\n  |> last()\n  |> keep(columns: [\"_time\", \"_value\", \"channel\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "min": 0,
+          "decimals": 0,
+          "displayName": "${__field.labels.channel}",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "minVizHeight": 10,
+        "maxVizHeight": 300,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "id": 45
+    },
+    {
+      "type": "timeseries",
+      "title": "Encoded vs raw payload (last 5 min)",
+      "description": "",
+      "datasource": {
+        "type": "influxdb",
+        "uid": "uvfr-influx"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"encoded_bits_per_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: true)\n  |> keep(columns: [\"_time\", \"_value\"])"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"serial_framed_bits_per_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: true)\n  |> keep(columns: [\"_time\", \"_value\"])"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "influxdb",
+            "uid": "uvfr-influx"
+          },
+          "query": "from(bucket: \"${bucket}\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement == \"bandwidth\" and r.car == \"${car}\" and r._field == \"payload_bits_per_s\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: true)\n  |> keep(columns: [\"_time\", \"_value\"])"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bps",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "fillOpacity": 6,
+            "showPoints": "never",
+            "spanNulls": 1500,
+            "lineInterpolation": "linear",
+            "axisPlacement": "auto",
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "A"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Encoded"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "With serial framing"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "C"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Raw payload"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "timeFrom": "5m",
+      "hideTimeOverride": false,
+      "id": 46
+    },
+    {
+      "type": "row",
+      "title": "Alarms",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 79
+      },
+      "id": 47
     },
     {
       "type": "state-timeline",
@@ -2968,7 +3545,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 66
+        "y": 80
       },
       "timeFrom": "15m",
       "targets": [
@@ -3047,7 +3624,7 @@
           "mode": "single"
         }
       },
-      "id": 39
+      "id": 48
     },
     {
       "type": "table",
@@ -3060,7 +3637,7 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 76
+        "y": 90
       },
       "targets": [
         {
@@ -3135,7 +3712,7 @@
           "show": false
         }
       },
-      "id": 40
+      "id": 49
     }
   ]
 }

@@ -149,6 +149,8 @@ The pit uses five statuses everywhere (link, channels, alarms):
 | `alerts_active` | 1/s | `car` | vehicle status, warning and critical counts, summary text |
 | `alert` | on every change | `car`, `rule`, `channel` | severity, previous severity, message, value |
 | `pit` | 1/s | `car` | receiver uptime, InfluxDB writer health (written, buffered, dropped, errors) |
+| `bandwidth` | 1/s | `car` | packets/s, encoded and raw payload bit/s, serial-framed bit/s, average packet size, overhead % |
+| `channel_bandwidth` | 1/s per channel | `car`, `channel` | bits/s of that channel's values |
 | `sim` | 1/s (lab only) | `car` | active fault scenario |
 
 ## Configuration

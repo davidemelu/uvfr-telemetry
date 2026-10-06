@@ -76,6 +76,14 @@ def flux_channel_states(window: str | None) -> str:
     )
 
 
+FLUX_CHANNEL_BANDWIDTH = (
+    'from(bucket: "${bucket}")\n'
+    "  |> range(start: -15s)\n"
+    '  |> filter(fn: (r) => r._measurement == "channel_bandwidth" and r.car == "${car}" and r._field == "bits_per_s")\n'
+    "  |> last()\n"
+    '  |> keep(columns: ["_time", "_value", "channel"])'
+)
+
 FLUX_ALARM_HISTORY = (
     'from(bucket: "${bucket}")\n'
     "  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n"
@@ -364,6 +372,38 @@ def build(dash_cfg: dict[str, Any], alerts_cfg: dict[str, Any], layout: ChannelL
         b.add(timeseries(title, series, {"h": 8, "w": 12, "x": 12 * (i % 2), "y": b.y + 8 * (i // 2)},
                          unit=unit, time_from="5m"))
     b.y += 16
+
+    # ---- bandwidth
+    b.row("Telemetry bandwidth (measured at the pit; see docs/bandwidth.md for LoRa airtime)")
+    bw_stats = [
+        ("Encoded stream", "encoded_bits_per_s", "bps", 0, "Every byte of every valid packet: header, bitmap, values, CRC, STATUS."),
+        ("Raw channel payload", "payload_bits_per_s", "bps", 0, "Channel value bytes only."),
+        ("With serial framing", "serial_framed_bits_per_s", "bps", 0, "What a COBS-framed serial radio link carries (+2 bytes per packet)."),
+        ("Packets per second", "packets_per_s", "suffix: pkt/s", 1, ""),
+        ("Average packet size", "avg_packet_bytes", "decbytes", 1, ""),
+        ("Protocol overhead", "overhead_pct", "percent", 0, "Share of encoded bytes that are not channel values."),
+    ]
+    for i, (title, field, unit, dec, desc) in enumerate(bw_stats):
+        b.add(stat(title, [target(flux_last("bandwidth", field))], {"h": 4, "w": 4, "x": 4 * i, "y": b.y},
+                   unit=unit, decimals=dec, color_mode="none", description=desc))
+    b.y += 4
+    b.add({
+        "type": "bargauge", "title": "Bandwidth by channel", "datasource": DS,
+        "gridPos": {"h": 9, "w": 12, "x": 0, "y": b.y},
+        "targets": [target(FLUX_CHANNEL_BANDWIDTH)],
+        "fieldConfig": {"defaults": {"unit": "bps", "min": 0, "decimals": 0, "displayName": "${__field.labels.channel}",
+                                     "color": {"mode": "fixed", "fixedColor": "blue"},
+                                     "thresholds": steps((None, "blue"))}, "overrides": []},
+        "options": {"orientation": "horizontal", "displayMode": "basic", "valueMode": "text", "showUnfilled": True,
+                    "namePlacement": "left", "sizing": "auto", "minVizHeight": 10, "maxVizHeight": 300,
+                    "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}},
+    })
+    b.add(timeseries("Encoded vs raw payload (last 5 min)",
+                     [{"measurement": "bandwidth", "field": "encoded_bits_per_s", "label": "Encoded", "agg": "mean"},
+                      {"measurement": "bandwidth", "field": "serial_framed_bits_per_s", "label": "With serial framing", "agg": "mean"},
+                      {"measurement": "bandwidth", "field": "payload_bits_per_s", "label": "Raw payload", "agg": "mean"}],
+                     {"h": 9, "w": 12, "x": 12, "y": b.y}, unit="bps", time_from="5m"))
+    b.y += 9
 
     # ---- alarms
     b.row("Alarms")

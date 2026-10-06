@@ -30,6 +30,7 @@ from common.env import load_env
 from common.protocol import ChannelLayout, Codec, DecodeError, Missing, StatusPacket, TelemetryPacket
 from common.transport import transport_from_config
 from pit_receiver.alerts import AlertEngine, AlertEvent
+from pit_receiver.bandwidth import BandwidthMeter
 from pit_receiver.channels import ChannelTracker, StalenessConfig
 from pit_receiver.clock import SourceClock
 from pit_receiver.influx_sink import InfluxConfig, InfluxSink
@@ -85,6 +86,7 @@ class PitReceiver:
         self.link = LinkStats(link_thresholds, rate_window_s, loss_window_packets)
         self.clock = SourceClock(clock_window_s)
         self.channels = ChannelTracker(layout, staleness)
+        self.bandwidth = BandwidthMeter(layout)
         self.alerts = alerts
         self.car_id = car_id
         self.sinks = sinks or []
@@ -128,6 +130,7 @@ class PitReceiver:
             return []
         if kind == "new_session":
             self.clock.reset()
+        self.bandwidth.record(packet, len(data))
         measured_at = self.clock.observe(packet.header.timestamp_ms, wall)
         time_ns = int(measured_at * 1e9)
 
@@ -224,6 +227,13 @@ class PitReceiver:
                 self.tags,
                 time_ns,
             ))
+
+        bw = self.bandwidth.window(mono)
+        if bw is not None:
+            totals, per_channel = bw
+            points.append(Point("bandwidth", totals, self.tags, time_ns))
+            for name, bits in per_channel.items():
+                points.append(Point("channel_bandwidth", {"bits_per_s": bits}, {**self.tags, "channel": name}, time_ns))
 
         sim = views.get("sim_scenario")
         if sim is not None and sim.value is not None:
