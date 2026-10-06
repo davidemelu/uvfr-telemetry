@@ -54,15 +54,19 @@ You do not need access to the homelab to work on this project.
 | Environment | What works |
 |---|---|
 | Homelab telemetry VM (Debian 13) | Everything, including vcan0 and the full demo |
-| Any Linux machine with the `vcan` kernel module + Docker | Everything |
-| WSL2 / macOS / Windows without SocketCAN | Unit tests, and the pipeline using python-can's UDP-multicast virtual bus instead of vcan0 |
+| Any Linux machine with the `vcan` kernel module + Docker | Everything (`./scripts/setup-vcan.sh`, then `make demo`) |
+| WSL2 / macOS / Windows without SocketCAN | `make test`, and the pipeline over python-can's UDP-multicast virtual bus instead of vcan: `pip install msgpack`, then `python -m simulator --interface udp_multicast` and `python -m car_node --interface udp_multicast` (verified on Linux; expected but not yet verified on macOS and Windows) |
 
-Setup and run instructions are added to the README and `docs/` as each
-component lands.
+Working from Windows against the lab VM: edit locally, then
+`scripts/deploy.sh uvfr-lab` (Git Bash) copies your working tree to the VM,
+leaving its `.env`, venv and recordings alone. Run things there over SSH.
 
 ## Before opening a pull request
 
-- Unit tests pass.
-- If you touched CAN, protocol, transport, the pit receiver or InfluxDB
-  writing, run the integration test on a vcan-capable host.
+- `make test` passes (CI runs it on Python 3.11 and 3.13 for every pull request).
+- If you touched CAN, protocol, transport, the pit receiver, alarms or
+  InfluxDB writing: `make test-all` on a vcan-capable host with the backend
+  running (the lab VM).
+- If you changed `config/dashboard.yaml`, `config/alerts.yaml` or channel
+  names: `make dashboard` and commit the regenerated JSON.
 - `git diff --staged` reviewed: no debug output, secrets or recordings.
